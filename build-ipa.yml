@@ -1,0 +1,43 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Archive
+        run: |
+          xcodebuild archive \
+            -project ChatApp.xcodeproj \
+            -scheme ChatApp \
+            -archivePath build/ChatApp.xcarchive \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Package unsigned app
+        run: |
+          mkdir -p build/Payload
+          cp -R build/ChatApp.xcarchive/Products/Applications/ChatApp.app build/Payload/ChatApp.app
+          cd build
+          zip -qry ChatApp-unsigned.ipa Payload
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChatApp-unsigned-ipa
+          path: build/ChatApp-unsigned.ipa
